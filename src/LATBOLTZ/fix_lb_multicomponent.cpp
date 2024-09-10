@@ -38,6 +38,7 @@
 #include "update.h"
 #include "error.h"
 #include "random_mars.h"
+#include <iostream>
 
 using namespace LAMMPS_NS;
 
@@ -423,6 +424,28 @@ void FixLbMulticomponent::calc_moments_full() {
   }
 }
 
+//Applying bounce back boundary condition on the bottom boundary at y=-100
+void apply_bounce_back(int x, int y, int z) {
+    // Assuming we have a 3D grid, and f_lb[x][y][z][i] stores the distribution functions.
+    // w_lb19 is an array of lattice weights, numvel is the number of velocity directions.
+    
+    // Check if the current position is at the solid surface
+    if (y == -100) {  // Solid surface located at y = -100
+        for (int i = 0; i < numvel; i++) {
+            int opposite_i = opposite_direction(i);  // Get the opposite direction
+            f_lb[x][y][z][opposite_i] = f_lb[x][y][z+1][i];  // Reflect the particle
+        }
+    }
+}
+int opposite_direction(int i) {
+    // Return the opposite direction index for the given lattice direction 'i'.
+    // This function needs to map each direction to its opposite direction.
+    // The exact mapping depends on the velocity set used (e.g., D3Q19).
+    static const int opposite[19] = {0, 2, 1, 4, 3, 6, 5, 8, 7, 10, 9, 12, 11, 14, 13, 16, 15, 18, 17};
+    return opposite[i];
+}
+
+
 // homogeneous mixture of C1, C2, and C3 with random concentration fluctuations
 void FixLbMulticomponent::init_mixture() {
   double rho, phi, psi;
@@ -620,6 +643,7 @@ void FixLbMulticomponent::init_mixed_droplet(double radius, double C1, double C2
   double C1tot_global=0., C2tot_global=0., C3tot_global=0.;
   double pos[3], r2;
   int x, y, z, i;
+  double xc=0, yc=-100, zc=0;
 
   RanMars *random = new RanMars(lmp,seed + comm->me);
 
@@ -629,7 +653,7 @@ void FixLbMulticomponent::init_mixed_droplet(double radius, double C1, double C2
       pos[1] = domain->sublo[1] + (y-halo_extent[1])*dx_lb;
       for (z=0; z<subNbz; z++) {
       	pos[2] = domain->sublo[2] + (z-halo_extent[2])*dx_lb;
-      	r2 = pos[0]*pos[0]+pos[1]*pos[1]+pos[2]*pos[2];
+      	r2 = ((pos[0]-xc)*(pos[0]-xc))+((pos[1]-yc)*(pos[1]-yc))+((pos[2]-zc)*(pos[2]-zc));
 
       	if (r2 < radius*radius) {
 	        C1_init = C1 + 0.01*random->gaussian();
@@ -651,6 +675,13 @@ void FixLbMulticomponent::init_mixed_droplet(double radius, double C1, double C2
 	      C1tot += C1_init;
 	      C2tot += C2_init;
 	      C3tot += C3_init;
+      	std::cout << "this is pos[0] " << pos[0] <<"\n";
+	      std::cout << "this is pos[1] " << pos[1] <<"\n";	
+        std::cout << "this is pos[2] " << pos[2] <<"\n";
+        std::cout << "this is C1_init " << C1_init <<"\n";
+        std::cout << "this is C2_init " << C2_init <<"\n";
+        std::cout << "this is C3_init " << C3_init <<"\n";
+        std::cout << "this is r^2 " << r2 << " at " << pos[0] << ", " << pos[1] << ", and " << pos[2]<<"\n";
       }
     }
   }
