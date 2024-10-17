@@ -73,6 +73,7 @@ namespace LAMMPS_NS {
     int seed;
     double C1, C2, C3;
     int radius;
+    double C1_single, C2_single, C3_single;
     double C1_drop, C2_drop;
     double C1_film, C2_film;
     double thickness;
@@ -103,11 +104,13 @@ namespace LAMMPS_NS {
     void init_lattice();
     void destroy_lattice();
 
-    enum init_type { MIXTURE, DROPLET, LIQUID_LENS, DOUBLE_EMULSION, FILM, MIXED_DROPLET };
+    enum init_type { MIXTURE, BINARY_MIXTURE, SINGLE, DROPLET, LIQUID_LENS, DOUBLE_EMULSION, FILM, MIXED_DROPLET };
     init_type init_method = MIXTURE;
 
     void init_fluid();
     void init_mixture();
+    void init_binary_mixture();
+    void init_single();
     void init_droplet(double radius);
     void init_liquid_lens(double radius);
     void init_double_emulsion(double radius);
@@ -124,6 +127,8 @@ namespace LAMMPS_NS {
     void read_column(int x,int y, int zmin, int zmax);
     void read_site(int x, int y, int z);
     void write_site(int x, int y, int z);
+    void apply_bounce_back();
+    // void apply_bounce_back(int x, int y, int z);
 
     void calc_moments(int x, int y, int z);
     void calc_chemical_potentials(int x, int y, int z);
