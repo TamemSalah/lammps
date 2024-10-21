@@ -107,11 +107,29 @@ void FixLbMulticomponent::lb_update() {
 #endif
 
   apply_bounce_back();
-
+    
   /* swap the pointers of the lattice copies */
   std::swap(f_lb,fnew);
   std::swap(g_lb,gnew);
   std::swap(k_lb,knew);
+}
+
+void save_output_to_file(const std::string& output_string, const std::string& filename) {
+  // Open a file with the given filename for writing
+  std::ofstream outfile(filename + ".txt");
+
+  // Check if the file is open and available
+  if (!outfile.is_open()) {
+      std::cerr << "Error: Unable to open file for writing." << std::endl;
+      return;
+  }
+
+  // Write the string to the file
+  outfile << output_string;
+  // Close the file after writing is done
+  outfile.close();
+  // Optionally, print a confirmation message
+  std::cout << "Output saved to '" << filename << ".txt'" << std::endl;
 }
 
 void FixLbMulticomponent::update_cube(int xmin, int xmax, int ymin, int ymax, int zmin, int zmax) {
@@ -166,75 +184,69 @@ void FixLbMulticomponent::write_site(int x, int y, int z) {
 
 void FixLbMulticomponent::collide_stream(int x, int y, int z) {
   int i, xnew, ynew, znew;
+  double f_w[19] = {0, 0.11111, 0.11111, 0.11111, 0.11111, 0.11111, 0.11111, 0.02777, 0.02777, 0.02777, 0.02777, 0.02777, 0.02777, 0.02777, 0.02777, 0.02777, 0.02777, 0.02777, 0.02777};
+  double S_f_prefactor, S_g_prefactor, S_k_prefactor;
+  double S_f, S_g, S_k;
   calc_equilibrium(x,y,z);
   for (i=0; i<numvel; ++i) {
     xnew = x + e19[i][0];
     ynew = y + e19[i][1];
     znew = z + e19[i][2];
 
-// collide step is  = f_lb[x][y][z][i] - (f_lb[x][y][z][i] - feq[x][y][z][i])/tau_r
-// stream step is xnew = .. ynew = .. znew = .. and fnew[xnew][ynew][znew][i] = ...
+    // collide step is  = f_lb[x][y][z][i] - (f_lb[x][y][z][i] - feq[x][y][z][i])/tau_r
+    // stream step is xnew = .. ynew = .. znew = .. and fnew[xnew][ynew][znew][i] = ...
     fnew[xnew][ynew][znew][i] = f_lb[x][y][z][i] - (f_lb[x][y][z][i] - feq[x][y][z][i])/tau_r;
     gnew[xnew][ynew][znew][i] = g_lb[x][y][z][i] - (g_lb[x][y][z][i] - geq[x][y][z][i])/tau_p;
     knew[xnew][ynew][znew][i] = k_lb[x][y][z][i] - (k_lb[x][y][z][i] - keq[x][y][z][i])/tau_s;
+
+    // adding force term
+    S_f_prefactor = (feq[x][y][z][i])/(density_lb[x][y][z]*cs2);
+    S_f = (S_f_prefactor)*((e19[i][0]-u_lb[x][y][z][0])*forcing[0] + (e19[i][1]-u_lb[x][y][z][1])*forcing[1] + (e19[i][2]-u_lb[x][y][z][2])*forcing[2]);
+    S_g_prefactor = (geq[x][y][z][i])/(density_lb[x][y][z]*cs2);
+    S_g = (S_g_prefactor)*((e19[i][0]-u_lb[x][y][z][0])*forcing[0] + (e19[i][1]-u_lb[x][y][z][1])*forcing[1] + (e19[i][2]-u_lb[x][y][z][2])*forcing[2]);
+    S_k_prefactor = (keq[x][y][z][i])/(density_lb[x][y][z]*cs2);
+    S_k = (S_k_prefactor)*((e19[i][0]-u_lb[x][y][z][0])*forcing[0] + (e19[i][1]-u_lb[x][y][z][1])*forcing[1] + (e19[i][2]-u_lb[x][y][z][2])*forcing[2]);
+    // S = f_w[i]*e19[i][0]*forcing[0] + f_w[i]*e19[i][1]*forcing[1] + f_w[i]*e19[i][2]*forcing[2];
+    fnew[xnew][ynew][znew][i] += S_f*(1-0.5/tau_r);
+    // gnew[xnew][ynew][znew][i] += S_g*(1-0.5/tau_p);
+    // knew[xnew][ynew][znew][i] += S_k*(1-0.5/tau_s);
   }
-}
-
-void save_output_to_file(const std::string& output_string, const std::string& filename) {
-  // Open a file with the given filename for writing
-  std::ofstream outfile(filename + ".txt");
-
-  // Check if the file is open and available
-  if (!outfile.is_open()) {
-      std::cerr << "Error: Unable to open file for writing." << std::endl;
-      return;
-  }
-
-  // Write the string to the file
-  outfile << output_string;
-  // Close the file after writing is done
-  outfile.close();
-  // Optionally, print a confirmation message
-  std::cout << "Output saved to '" << filename << ".txt'" << std::endl;
 }
 
 void FixLbMulticomponent::apply_bounce_back() {
-  int bb_y_bottom = domain->boxlo[1];
   int bb_y_top = domain->boxhi[1] - 1;
+  int bb_y_bottom = domain->boxlo[1];
   
   for (int y = halo_extent[1]; y < subNby - halo_extent[1]; y++){
     int bb_y = domain->sublo[1] + (y - halo_extent[1])*dx_lb;
     if (bb_y == bb_y_top){
       for (int x = halo_extent[0]; x < subNbx - halo_extent[0]; x++) {
         for (int z = halo_extent[2]; z < subNbz - halo_extent[2]; z++) {
-          
           // Top boundary
-          if (bb_y_top = domain->boxhi[1] - 1){
           std::cout << "bb_y_top = " << bb_y_top << std::endl;
           std::cout << " / " << std::endl;
           std::cout << "/ " << std::endl;
-          fnew[x][bb_y_top][z][4] = fnew[x][bb_y_top - 1][z][2];
-          gnew[x][bb_y_top][z][4] = gnew[x][bb_y_top - 1][z][2];
-          knew[x][bb_y_top][z][4] = knew[x][bb_y_top - 1][z][2];
+          fnew[x][y - 1][z][4] = fnew[x][y][z][2];
+          gnew[x][y - 1][z][4] = gnew[x][y][z][2];
+          knew[x][y - 1][z][4] = knew[x][y][z][2];
 
-          fnew[x][bb_y_top][z][8] = fnew[x-1][bb_y_top - 1][z][9];
-          gnew[x][bb_y_top][z][8] = gnew[x-1][bb_y_top - 1][z][9];
-          knew[x][bb_y_top][z][8] = knew[x-1][bb_y_top - 1][z][9];
+          fnew[x][y - 1][z][8] = fnew[x-1][y][z][9];
+          gnew[x][y - 1][z][8] = gnew[x-1][y][z][9];
+          knew[x][y - 1][z][8] = knew[x-1][y][z][9];
 
-          fnew[x][bb_y_top][z][10] = fnew[x+1][bb_y_top - 1][z][7];
-          gnew[x][bb_y_top][z][10] = gnew[x+1][bb_y_top - 1][z][7];
-          knew[x][bb_y_top][z][10] = knew[x+1][bb_y_top - 1][z][7];
+          fnew[x][y - 1][z][10] = fnew[x+1][y][z][7];
+          gnew[x][y - 1][z][10] = gnew[x+1][y][z][7];
+          knew[x][y - 1][z][10] = knew[x+1][y][z][7];
 
-          fnew[x][bb_y_top][z][18] = fnew[x][bb_y_top - 1][z-1][15];
-          gnew[x][bb_y_top][z][18] = gnew[x][bb_y_top - 1][z-1][15];
-          knew[x][bb_y_top][z][18] = knew[x][bb_y_top - 1][z-1][15];
+          fnew[x][y - 1][z][18] = fnew[x][y][z-1][15];
+          gnew[x][y - 1][z][18] = gnew[x][y][z-1][15];
+          knew[x][y - 1][z][18] = knew[x][y][z-1][15];
 
-          fnew[x][bb_y_top][z][17] = fnew[x][bb_y_top - 1][z+1][16];
-          gnew[x][bb_y_top][z][17] = gnew[x][bb_y_top - 1][z+1][16];
-          knew[x][bb_y_top][z][17] = knew[x][bb_y_top - 1][z+1][16];
-          }
+          fnew[x][y - 1][z][17] = fnew[x][y][z+1][16];
+          gnew[x][y - 1][z][17] = gnew[x][y][z+1][16];
+          knew[x][y - 1][z][17] = knew[x][y][z+1][16];
         }
-      }  
+      }
     }
     if (bb_y == bb_y_bottom){
       for (int x = halo_extent[0]; x < subNbx - halo_extent[0]; x++) {
@@ -243,25 +255,25 @@ void FixLbMulticomponent::apply_bounce_back() {
           std::cout << "bb_y_bottom = " << bb_y_bottom << std::endl;
           std::cout << " / " << std::endl;
           std::cout << "/ " << std::endl;
-          fnew[x][bb_y_bottom][z][2] = fnew[x][bb_y_bottom + 1][z][4];
-          gnew[x][bb_y_bottom][z][2] = gnew[x][bb_y_bottom + 1][z][4];
-          knew[x][bb_y_bottom][z][2] = knew[x][bb_y_bottom + 1][z][4];
+          fnew[x][y + 1][z][2] = fnew[x][y][z][4];
+          gnew[x][y + 1][z][2] = gnew[x][y][z][4];
+          knew[x][y + 1][z][2] = knew[x][y][z][4];
 
-          fnew[x][bb_y_bottom][z][9] = fnew[x+1][bb_y_bottom + 1][z][8];
-          gnew[x][bb_y_bottom][z][9] = gnew[x+1][bb_y_bottom + 1][z][8];
-          knew[x][bb_y_bottom][z][9] = knew[x+1][bb_y_bottom + 1][z][8];
+          fnew[x][y + 1][z][9] = fnew[x+1][y][z][8];
+          gnew[x][y + 1][z][9] = gnew[x+1][y][z][8];
+          knew[x][y + 1][z][9] = knew[x+1][y][z][8];
 
-          fnew[x][bb_y_bottom][z][7] = fnew[x-1][bb_y_bottom + 1][z][10];
-          gnew[x][bb_y_bottom][z][7] = gnew[x-1][bb_y_bottom + 1][z][10];
-          knew[x][bb_y_bottom][z][7] = knew[x-1][bb_y_bottom + 1][z][10];
+          fnew[x][y + 1][z][7] = fnew[x-1][y][z][10];
+          gnew[x][y + 1][z][7] = gnew[x-1][y][z][10];
+          knew[x][y + 1][z][7] = knew[x-1][y][z][10];
 
-          fnew[x][bb_y_bottom][z][15] = fnew[x][bb_y_bottom + 1][z+1][18];
-          gnew[x][bb_y_bottom][z][15] = gnew[x][bb_y_bottom + 1][z+1][18];
-          knew[x][bb_y_bottom][z][15] = knew[x][bb_y_bottom + 1][z+1][18];
+          fnew[x][y + 1][z][15] = fnew[x][y][z+1][18];
+          gnew[x][y + 1][z][15] = gnew[x][y][z+1][18];
+          knew[x][y + 1][z][15] = knew[x][y][z+1][18];
 
-          fnew[x][bb_y_bottom][z][16] = fnew[x][bb_y_bottom + 1][z-1][17];
-          gnew[x][bb_y_bottom][z][16] = gnew[x][bb_y_bottom + 1][z-1][17];
-          knew[x][bb_y_bottom][z][16] = knew[x][bb_y_bottom + 1][z-1][17];
+          fnew[x][y + 1][z][16] = fnew[x][y][z-1][17];
+          gnew[x][y + 1][z][16] = gnew[x][y][z-1][17];
+          knew[x][y + 1][z][16] = knew[x][y][z-1][17];
         }
       }
     }
@@ -298,11 +310,51 @@ void FixLbMulticomponent::calc_moments(int x, int y, int z) {
   u_lb[x][y][z][1] = j[1]/rho;
   u_lb[x][y][z][2] = j[2]/rho;
 
-  // Calculate pressure based on rho, phi, and psi (assumes pressure() is already defined)
+  u_lb[x][y][z][0] += 0.5*forcing[0]/rho;
+  u_lb[x][y][z][1] += 0.5*forcing[1]/rho;
+  u_lb[x][y][z][2] += 0.5*forcing[2]/rho;
+
+  // Calculate pressure based on rho, phi, and psi
   pressure_lb[x][y][z] = pressure(rho,phi,psi);
 }
 
+void FixLbMulticomponent::rho_phi_psi_switch(int x, int y, int z) {
+  // Define the coordinates for the last fluid node and the node two steps inside the boundary
+  int y_top = domain->boxhi[1] - 1;
+  int y_top_adjacent = y_top - 2;  // Two nodes away from the last fluid node at the top
+
+  int y_bottom = domain->boxlo[1];
+  int y_bottom_adjacent = y_bottom + 2;  // Two nodes away from the last fluid node at the bottom
+  
+  int swap_y = domain->sublo[1] + (y - halo_extent[1])*dx_lb; //coordinate of y
+  // Check if the current node is on the top y-boundary
+  if (swap_y == y_top) {
+    // Loop over the entire x-z plane
+    for (int x = halo_extent[0]; x < subNbx - halo_extent[0]; ++x) {
+      for (int z = halo_extent[2]; z < subNbz - halo_extent[2]; ++z) {
+        // Copy values from two nodes inward to the last fluid node at the top boundary
+        density_lb[x][y_top][z] = density_lb[x][y_top_adjacent][z];
+        phi_lb[x][y_top][z] = phi_lb[x][y_top_adjacent][z];
+        psi_lb[x][y_top][z] = psi_lb[x][y_top_adjacent][z];
+      }
+    }
+  }
+  // Check if the current node is on the bottom y-boundary
+  if (swap_y == y_bottom) {
+    // Loop over the entire x-z plane
+    for (int x = halo_extent[0]; x < subNbx - halo_extent[0]; ++x) {
+      for (int z = halo_extent[2]; z < subNbz - halo_extent[2]; ++z) {
+        // Copy values from two nodes inward to the last fluid node at the bottom boundary
+        density_lb[x][y_bottom][z] = density_lb[x][y_bottom_adjacent][z];
+        phi_lb[x][y_bottom][z] = phi_lb[x][y_bottom_adjacent][z];
+        psi_lb[x][y_bottom][z] = psi_lb[x][y_bottom_adjacent][z];
+      }
+    }
+  }
+}
+
 void FixLbMulticomponent::calc_equilibrium(int x, int y, int z) {
+  rho_phi_psi_switch(x, y, z);
   calc_gradient_laplacian(x,y,z, density_lb, density_gradient, laplace_rho);
   calc_gradient_laplacian(x,y,z, phi_lb, phi_gradient, laplace_phi);
   calc_gradient_laplacian(x,y,z, psi_lb, psi_gradient, laplace_psi);
@@ -314,15 +366,26 @@ void FixLbMulticomponent::calc_equilibrium(int x, int y, int z) {
 
 void FixLbMulticomponent::calc_gradient_laplacian(int x, int y, int z, double ***field, double ****gradient, double ***laplacian) {
   int i, xp, yp, zp, dir;
+
+  // Initialize the Laplacian at the point (x, y, z) to 0
   laplacian[x][y][z] = 0.0;
+
+  // Initialize the gradient vector (in 3 directions) at the point (x, y, z) to 0
   for (dir=0; dir<3; dir++) gradient[x][y][z][dir] = 0.0;
+
+  // Loop over all lattice velocity directions (numvel is the number of discrete velocities)
   for (i=0; i<numvel; i++) {
+    // Get neighboring grid points based on the velocity direction 'i'
     xp = x + e19[i][0];
     yp = y + e19[i][1];
     zp = z + e19[i][2];
+
+    // Compute the contribution to the gradient in each direction (x, y, z)    
     for (dir=0; dir<3; dir++) {
+      // Add to the gradient in the current direction based on neighboring point value
       gradient[x][y][z][dir] += 3.*w_lb19[i]*field[xp][yp][zp]*e19[i][dir];
     }
+    // Compute the Laplacian: sum contributions from neighboring points (xp, yp, zp)
     laplacian[x][y][z] += 6.*w_lb19[i]*(field[xp][yp][zp]-field[x][y][z]);
   }
 }
@@ -575,6 +638,7 @@ void FixLbMulticomponent::init_mixture() {
   }
 
   delete(random);
+
 }
 
 // homogeneous binary system of C1, and C3 with random concentration fluctuations with C1 on one half of the box and C3 on the other half
@@ -654,17 +718,6 @@ void FixLbMulticomponent::init_single() {
       }
     }
   }
-
-  // Global reduction across all processes
-  MPI_Reduce(&C1tot, &C1tot_global, 1, MPI_DOUBLE, MPI_SUM, 0, world);
-  MPI_Reduce(&C2tot, &C2tot_global, 1, MPI_DOUBLE, MPI_SUM, 0, world);
-  MPI_Reduce(&C3tot, &C3tot_global, 1, MPI_DOUBLE, MPI_SUM, 0, world);
-  double vol = Nbx * Nby * Nbz;
-
-  if (comm->me == 0) {
-    error->message(FLERR, "Initialized C1-only system with <C1> = {:f}, <C2> = {:f}, <C3> = {:f}", 
-                   C1tot_global / vol, C2tot_global / vol, C3tot_global / vol);
-  }
 }
 
 // droplet composed of component C1 and C2 (C3=0)
@@ -722,9 +775,7 @@ void FixLbMulticomponent::init_liquid_lens(double radius) {
       }
     }
   }
-
 }
-
 
 // double emulsion droplet of C1 and C2 surrounded by C3
 void FixLbMulticomponent::init_double_emulsion(double radius) {
@@ -810,6 +861,7 @@ void FixLbMulticomponent::init_film(double thickness, double C1_film, double C2_
   }
 
   delete(random);
+
 }
 
 // mixed droplet of component C1 and C2 within pure C3
@@ -879,8 +931,8 @@ void FixLbMulticomponent::init_mixed_droplet(double radius, double C1, double C2
   }
 
   delete(random);
-}
 
+}
 
 void FixLbMulticomponent::init_fluid() {
 
@@ -910,9 +962,7 @@ void FixLbMulticomponent::init_fluid() {
       init_mixed_droplet(radius, C1_drop, C2_drop);
       break;
   }
-
 }
-
 
 void FixLbMulticomponent::halo_comm(int dir) {
   int tag_low=15, tag_high=25;
@@ -969,18 +1019,15 @@ void FixLbMulticomponent::halo_comm(int dir) {
     }
 }
 
-
 void FixLbMulticomponent::halo_wait() {
   MPI_Waitall(numrequests,requests,MPI_STATUS_IGNORE);
 }
-
 
 void FixLbMulticomponent::halo_comm() {
   halo_comm(2); halo_wait();
   halo_comm(1); halo_wait();
   halo_comm(0); halo_wait();
 }
-
 
 void FixLbMulticomponent::init_halo() {
 
@@ -1012,11 +1059,9 @@ void FixLbMulticomponent::init_halo() {
 
 }
 
-
 void FixLbMulticomponent::destroy_halo() {
   // MPI datatypes are freed in parent destructor
 }
-
 
 void FixLbMulticomponent::dump_xdmf(const int step) {
   if ( dump_interval && step % dump_interval == 0 ) {
@@ -1143,7 +1188,7 @@ void FixLbMulticomponent::dump_xdmf(const int step) {
       std::vector<double> psi_2_fort (lvol);
       std::vector<double> pressure_2_fort (lvol);
       std::vector<double> velocity_2_fort (lvol*3);
-      std::vector<double> mu_phi_2_fort(lvol);
+      // std::vector<double> mu_phi_2_fort(lvol);
 
       int indexf=0;
       for (int k=0; k<lbox[2]; k++) {
@@ -1206,8 +1251,8 @@ static MPI_Datatype mpiTypeGlobalWrite(const int local_ghost,
   }
 
   return global_mpitype;
-}
 
+}
 
 static MPI_Datatype mpiTypeLocalWrite(const int local_ghost,
                                       const int *local_size,
@@ -1243,8 +1288,8 @@ static MPI_Datatype mpiTypeLocalWrite(const int local_ghost,
   }
 
   return local_mpitype;
-}
 
+}
 
 static MPI_Datatype mpiTypeDumpGlobal_ternary(const int *local_size,
 					      const int *global_offset,
@@ -1280,6 +1325,7 @@ static MPI_Datatype mpiTypeDumpGlobal_ternary(const int *local_size,
   }
 
   return dump_ternary;
+
 }
 
 void FixLbMulticomponent::init_output(void)
@@ -1329,14 +1375,12 @@ void FixLbMulticomponent::init_output(void)
   }
 }
 
-
 void FixLbMulticomponent::destroy_output() {
 
   MPI_Type_free(&fluid_scalar_field_mpitype);
   MPI_Type_free(&fluid_vector_field_mpitype);
 
 }
-
 
 void FixLbMulticomponent::init_lattice() {
 
@@ -1383,7 +1427,6 @@ void FixLbMulticomponent::init_lattice() {
 
 }
 
-
 void FixLbMulticomponent::destroy_lattice() {
 
   memory->destroy(f_lb);
@@ -1409,7 +1452,6 @@ void FixLbMulticomponent::destroy_lattice() {
   memory->destroy(laplace_psi);
 
 }
-
 
 void FixLbMulticomponent::init_parameters(int argc, char **argv) {
 
@@ -1588,4 +1630,5 @@ FixLbMulticomponent::FixLbMulticomponent(LAMMPS *lmp, int argc, char **argv)
   init_output();
   init_fluid();
   dump_xdmf(update->ntimestep);
+
 }
