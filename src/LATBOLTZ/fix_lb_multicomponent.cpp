@@ -202,10 +202,10 @@ void FixLbMulticomponent::collide_stream(int x, int y, int z) {
     // adding force term
     S_f_prefactor = (feq[x][y][z][i])/(density_lb[x][y][z]*cs2);
     S_f = (S_f_prefactor)*((e19[i][0]-u_lb[x][y][z][0])*forcing[0] + (e19[i][1]-u_lb[x][y][z][1])*forcing[1] + (e19[i][2]-u_lb[x][y][z][2])*forcing[2]);
-    S_g_prefactor = (geq[x][y][z][i])/(density_lb[x][y][z]*cs2);
-    S_g = (S_g_prefactor)*((e19[i][0]-u_lb[x][y][z][0])*forcing[0] + (e19[i][1]-u_lb[x][y][z][1])*forcing[1] + (e19[i][2]-u_lb[x][y][z][2])*forcing[2]);
-    S_k_prefactor = (keq[x][y][z][i])/(density_lb[x][y][z]*cs2);
-    S_k = (S_k_prefactor)*((e19[i][0]-u_lb[x][y][z][0])*forcing[0] + (e19[i][1]-u_lb[x][y][z][1])*forcing[1] + (e19[i][2]-u_lb[x][y][z][2])*forcing[2]);
+    // S_g_prefactor = (geq[x][y][z][i])/(density_lb[x][y][z]*cs2);
+    // S_g = (S_g_prefactor)*((e19[i][0]-u_lb[x][y][z][0])*forcing[0] + (e19[i][1]-u_lb[x][y][z][1])*forcing[1] + (e19[i][2]-u_lb[x][y][z][2])*forcing[2]);
+    // S_k_prefactor = (keq[x][y][z][i])/(density_lb[x][y][z]*cs2);
+    // S_k = (S_k_prefactor)*((e19[i][0]-u_lb[x][y][z][0])*forcing[0] + (e19[i][1]-u_lb[x][y][z][1])*forcing[1] + (e19[i][2]-u_lb[x][y][z][2])*forcing[2]);
     // S = f_w[i]*e19[i][0]*forcing[0] + f_w[i]*e19[i][1]*forcing[1] + f_w[i]*e19[i][2]*forcing[2];
     fnew[xnew][ynew][znew][i] += S_f*(1-0.5/tau_r);
     // gnew[xnew][ynew][znew][i] += S_g*(1-0.5/tau_p);
@@ -321,10 +321,7 @@ void FixLbMulticomponent::calc_moments(int x, int y, int z) {
 void FixLbMulticomponent::rho_phi_psi_switch(int x, int y, int z) {
   // Define the coordinates for the last fluid node and the node two steps inside the boundary
   int y_top = domain->boxhi[1] - 1;
-  int y_top_adjacent = y_top - 2;  // Two nodes away from the last fluid node at the top
-
   int y_bottom = domain->boxlo[1];
-  int y_bottom_adjacent = y_bottom + 2;  // Two nodes away from the last fluid node at the bottom
   
   int swap_y = domain->sublo[1] + (y - halo_extent[1])*dx_lb; //coordinate of y
   // Check if the current node is on the top y-boundary
@@ -333,9 +330,9 @@ void FixLbMulticomponent::rho_phi_psi_switch(int x, int y, int z) {
     for (int x = halo_extent[0]; x < subNbx - halo_extent[0]; ++x) {
       for (int z = halo_extent[2]; z < subNbz - halo_extent[2]; ++z) {
         // Copy values from two nodes inward to the last fluid node at the top boundary
-        density_lb[x][y_top][z] = density_lb[x][y_top_adjacent][z];
-        phi_lb[x][y_top][z] = phi_lb[x][y_top_adjacent][z];
-        psi_lb[x][y_top][z] = psi_lb[x][y_top_adjacent][z];
+        density_lb[x][y][z] = density_lb[x][y - 1][z];
+        phi_lb[x][y][z] = phi_lb[x][y - 1][z];
+        psi_lb[x][y][z] = psi_lb[x][y - 1][z];
       }
     }
   }
@@ -345,9 +342,9 @@ void FixLbMulticomponent::rho_phi_psi_switch(int x, int y, int z) {
     for (int x = halo_extent[0]; x < subNbx - halo_extent[0]; ++x) {
       for (int z = halo_extent[2]; z < subNbz - halo_extent[2]; ++z) {
         // Copy values from two nodes inward to the last fluid node at the bottom boundary
-        density_lb[x][y_bottom][z] = density_lb[x][y_bottom_adjacent][z];
-        phi_lb[x][y_bottom][z] = phi_lb[x][y_bottom_adjacent][z];
-        psi_lb[x][y_bottom][z] = psi_lb[x][y_bottom_adjacent][z];
+        density_lb[x][y][z] = density_lb[x][y + 1][z];
+        phi_lb[x][y][z] = phi_lb[x][y + 1][z];
+        psi_lb[x][y][z] = psi_lb[x][y + 1][z];
       }
     }
   }
