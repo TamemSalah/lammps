@@ -126,7 +126,7 @@ namespace LAMMPS_NS {
     void read_column(int x,int y, int zmin, int zmax);
     void read_site(int x, int y, int z);
     void write_site(int x, int y, int z);
-    void apply_bounce_back();
+    void final_bounce_back();
     // void apply_bounce_back(int x, int y, int z);
     void rho_phi_psi_switch(int x, int y, int z);
 
@@ -137,8 +137,6 @@ namespace LAMMPS_NS {
     void calc_geq(int x, int y, int z);
     void calc_keq(int x, int y, int z);
     void calc_gradient_laplacian(int x, int y, int z, double ***field, double ****gradient, double ***laplacian);
-    void update_surface_gradients(int x, int y, int z);
-    
     void calc_rho_gradients(int x, int y, int z);
     void calc_phi_gradients(int x, int y, int z);
     void calc_psi_gradients(int x, int y, int z);
@@ -166,3 +164,4 @@ namespace LAMMPS_NS {
 }
 #endif
 #endif
+

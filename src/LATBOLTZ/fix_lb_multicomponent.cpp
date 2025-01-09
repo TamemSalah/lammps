@@ -106,7 +106,7 @@ void FixLbMulticomponent::lb_update() {
   update_cube(subNbx-4,subNbx, 0,subNby, 0,subNbz);
 #endif
 
-  apply_bounce_back();
+  final_bounce_back();
     
   /* swap the pointers of the lattice copies */
   std::swap(f_lb,fnew);
@@ -213,71 +213,60 @@ void FixLbMulticomponent::collide_stream(int x, int y, int z) {
   }
 }
 
-void FixLbMulticomponent::apply_bounce_back() {
-  int bb_y_top = domain->boxhi[1] - 1;
-  int bb_y_bottom = domain->boxlo[1];
-  
-  for (int y = halo_extent[1]; y < subNby - halo_extent[1]; y++){
-    int bb_y = domain->sublo[1] + (y - halo_extent[1])*dx_lb;
-    if (bb_y == bb_y_top){
-      for (int x = halo_extent[0]; x < subNbx - halo_extent[0]; x++) {
-        for (int z = halo_extent[2]; z < subNbz - halo_extent[2]; z++) {
-          // Top boundary
-          std::cout << "bb_y_top = " << bb_y_top << std::endl;
-          std::cout << " / " << std::endl;
-          std::cout << "/ " << std::endl;
-          fnew[x][y - 1][z][4] = fnew[x][y][z][2];
-          gnew[x][y - 1][z][4] = gnew[x][y][z][2];
-          knew[x][y - 1][z][4] = knew[x][y][z][2];
-
-          fnew[x][y - 1][z][8] = fnew[x-1][y][z][9];
-          gnew[x][y - 1][z][8] = gnew[x-1][y][z][9];
-          knew[x][y - 1][z][8] = knew[x-1][y][z][9];
-
-          fnew[x][y - 1][z][10] = fnew[x+1][y][z][7];
-          gnew[x][y - 1][z][10] = gnew[x+1][y][z][7];
-          knew[x][y - 1][z][10] = knew[x+1][y][z][7];
-
-          fnew[x][y - 1][z][18] = fnew[x][y][z-1][15];
-          gnew[x][y - 1][z][18] = gnew[x][y][z-1][15];
-          knew[x][y - 1][z][18] = knew[x][y][z-1][15];
-
-          fnew[x][y - 1][z][17] = fnew[x][y][z+1][16];
-          gnew[x][y - 1][z][17] = gnew[x][y][z+1][16];
-          knew[x][y - 1][z][17] = knew[x][y][z+1][16];
+void FixLbMulticomponent::final_bounce_back() {
+  int z_top = domain->boxhi[2]-1;
+  int z_bot = domain->boxlo[2];
+  for (int z=halo_extent[2]; z<subNbz-halo_extent[2]; z++){
+    int cur_z = domain->sublo[2] + (z-halo_extent[2])*dx_lb;
+    if(cur_z == z_top){
+      for (int x=halo_extent[0]; x<subNbx-halo_extent[0]; x++) {
+        for (int y=halo_extent[1]; y<subNby-halo_extent[1]; y++) {
+          // bounce back at top
+          fnew[x][y][z-1][6] = fnew[x][y][z][5];
+          fnew[x][y][z-1][14] = fnew[x+1][y][z][11];
+          fnew[x][y][z-1][12] = fnew[x-1][y][z][13];
+          fnew[x][y][z-1][16] = fnew[x][y-1][z][17];
+          fnew[x][y][z-1][18] = fnew[x][y+1][z][15];
+          // ----
+          gnew[x][y][z-1][6] = gnew[x][y][z][5];
+          gnew[x][y][z-1][14] = gnew[x+1][y][z][11];
+          gnew[x][y][z-1][12] = gnew[x-1][y][z][13];
+          gnew[x][y][z-1][16] = gnew[x][y-1][z][17];
+          gnew[x][y][z-1][18] = gnew[x][y+1][z][15];
+          // ----
+          knew[x][y][z-1][6] = knew[x][y][z][5];
+          knew[x][y][z-1][14] = knew[x+1][y][z][11];
+          knew[x][y][z-1][12] = knew[x-1][y][z][13];
+          knew[x][y][z-1][16] = knew[x][y-1][z][17];
+          knew[x][y][z-1][18] = knew[x][y+1][z][15];
         }
-      }
+      }   
     }
-    if (bb_y == bb_y_bottom){
-      for (int x = halo_extent[0]; x < subNbx - halo_extent[0]; x++) {
-        for (int z = halo_extent[2]; z < subNbz - halo_extent[2]; z++) {
-        // Bottom boundary
-          std::cout << "bb_y_bottom = " << bb_y_bottom << std::endl;
-          std::cout << " / " << std::endl;
-          std::cout << "/ " << std::endl;
-          fnew[x][y + 1][z][2] = fnew[x][y][z][4];
-          gnew[x][y + 1][z][2] = gnew[x][y][z][4];
-          knew[x][y + 1][z][2] = knew[x][y][z][4];
-
-          fnew[x][y + 1][z][9] = fnew[x+1][y][z][8];
-          gnew[x][y + 1][z][9] = gnew[x+1][y][z][8];
-          knew[x][y + 1][z][9] = knew[x+1][y][z][8];
-
-          fnew[x][y + 1][z][7] = fnew[x-1][y][z][10];
-          gnew[x][y + 1][z][7] = gnew[x-1][y][z][10];
-          knew[x][y + 1][z][7] = knew[x-1][y][z][10];
-
-          fnew[x][y + 1][z][15] = fnew[x][y][z+1][18];
-          gnew[x][y + 1][z][15] = gnew[x][y][z+1][18];
-          knew[x][y + 1][z][15] = knew[x][y][z+1][18];
-
-          fnew[x][y + 1][z][16] = fnew[x][y][z-1][17];
-          gnew[x][y + 1][z][16] = gnew[x][y][z-1][17];
-          knew[x][y + 1][z][16] = knew[x][y][z-1][17];
+    if(cur_z == z_bot){
+      for (int x=halo_extent[0]; x<subNbx-halo_extent[0]; x++) {
+        for (int y=halo_extent[1]; y<subNby-halo_extent[1]; y++) {
+          // bounce back at bottom
+          fnew[x][y][z+1][5] = fnew[x][y][z][6];
+          fnew[x][y][z+1][11] = fnew[x-1][y][z][14];
+          fnew[x][y][z+1][13] = fnew[x+1][y][z][12];
+          fnew[x][y][z+1][17] = fnew[x][y+1][z][16];
+          fnew[x][y][z+1][15] = fnew[x][y-1][z][18];
+          // ----
+          gnew[x][y][z+1][5] = gnew[x][y][z][6];
+          gnew[x][y][z+1][11] = gnew[x-1][y][z][14];
+          gnew[x][y][z+1][13] = gnew[x+1][y][z][12];
+          gnew[x][y][z+1][17] = gnew[x][y+1][z][16];
+          gnew[x][y][z+1][15] = gnew[x][y-1][z][18];
+          // ----
+          knew[x][y][z+1][5] = knew[x][y][z][6];
+          knew[x][y][z+1][11] = knew[x-1][y][z][14];
+          knew[x][y][z+1][13] = knew[x+1][y][z][12];
+          knew[x][y][z+1][17] = knew[x][y+1][z][16];
+          knew[x][y][z+1][15] = knew[x][y-1][z][18];
         }
-      }
+      } 
     }
-  }
+  } 
 }
 
 void FixLbMulticomponent::calc_moments(int x, int y, int z) {
@@ -858,7 +847,6 @@ void FixLbMulticomponent::init_film(double thickness, double C1_film, double C2_
   }
 
   delete(random);
-
 }
 
 // mixed droplet of component C1 and C2 within pure C3
@@ -1629,3 +1617,4 @@ FixLbMulticomponent::FixLbMulticomponent(LAMMPS *lmp, int argc, char **argv)
   dump_xdmf(update->ntimestep);
 
 }
+
