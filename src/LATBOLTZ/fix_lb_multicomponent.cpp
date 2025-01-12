@@ -200,14 +200,14 @@ void FixLbMulticomponent::collide_stream(int x, int y, int z) {
     knew[xnew][ynew][znew][i] = k_lb[x][y][z][i] - (k_lb[x][y][z][i] - keq[x][y][z][i])/tau_s;
 
     // adding force term
-    S_f_prefactor = (feq[x][y][z][i])/(density_lb[x][y][z]*cs2);
-    S_f = (S_f_prefactor)*((e19[i][0]-u_lb[x][y][z][0])*forcing[0] + (e19[i][1]-u_lb[x][y][z][1])*forcing[1] + (e19[i][2]-u_lb[x][y][z][2])*forcing[2]);
+    //S_f_prefactor = (feq[x][y][z][i])/(density_lb[x][y][z]*cs2);
+    //S_f = (S_f_prefactor)*((e19[i][0]-u_lb[x][y][z][0])*forcing[0] + (e19[i][1]-u_lb[x][y][z][1])*forcing[1] + (e19[i][2]-u_lb[x][y][z][2])*forcing[2]);
     // S_g_prefactor = (geq[x][y][z][i])/(density_lb[x][y][z]*cs2);
     // S_g = (S_g_prefactor)*((e19[i][0]-u_lb[x][y][z][0])*forcing[0] + (e19[i][1]-u_lb[x][y][z][1])*forcing[1] + (e19[i][2]-u_lb[x][y][z][2])*forcing[2]);
     // S_k_prefactor = (keq[x][y][z][i])/(density_lb[x][y][z]*cs2);
     // S_k = (S_k_prefactor)*((e19[i][0]-u_lb[x][y][z][0])*forcing[0] + (e19[i][1]-u_lb[x][y][z][1])*forcing[1] + (e19[i][2]-u_lb[x][y][z][2])*forcing[2]);
     // S = f_w[i]*e19[i][0]*forcing[0] + f_w[i]*e19[i][1]*forcing[1] + f_w[i]*e19[i][2]*forcing[2];
-    fnew[xnew][ynew][znew][i] += S_f*(1-0.5/tau_r);
+    // fnew[xnew][ynew][znew][i] += S_f*(1-0.5/tau_r);
     // gnew[xnew][ynew][znew][i] += S_g*(1-0.5/tau_p);
     // knew[xnew][ynew][znew][i] += S_k*(1-0.5/tau_s);
   }
@@ -264,7 +264,7 @@ void FixLbMulticomponent::final_bounce_back() {
           knew[x][y][z+1][17] = knew[x][y+1][z][16];
           knew[x][y][z+1][15] = knew[x][y-1][z][18];
         }
-      } 
+      }   
     }
   } 
 }
@@ -308,35 +308,31 @@ void FixLbMulticomponent::calc_moments(int x, int y, int z) {
 }
 
 void FixLbMulticomponent::rho_phi_psi_switch(int x, int y, int z) {
-  // Define the coordinates for the last fluid node and the node two steps inside the boundary
-  int y_top = domain->boxhi[1] - 1;
-  int y_bottom = domain->boxlo[1];
-  
-  int swap_y = domain->sublo[1] + (y - halo_extent[1])*dx_lb; //coordinate of y
-  // Check if the current node is on the top y-boundary
-  if (swap_y == y_top) {
-    // Loop over the entire x-z plane
-    for (int x = halo_extent[0]; x < subNbx - halo_extent[0]; ++x) {
-      for (int z = halo_extent[2]; z < subNbz - halo_extent[2]; ++z) {
-        // Copy values from two nodes inward to the last fluid node at the top boundary
-        density_lb[x][y][z] = density_lb[x][y - 1][z];
-        phi_lb[x][y][z] = phi_lb[x][y - 1][z];
-        psi_lb[x][y][z] = psi_lb[x][y - 1][z];
-      }
+  int z_top = domain->boxhi[2]-1;
+  int z_bot = domain->boxlo[2];
+  for (int z=halo_extent[2]; z<subNbz-halo_extent[2]; z++){
+    int cur_z = domain->sublo[2] + (z-halo_extent[2])*dx_lb;
+    if(cur_z == z_top){
+      for (int x=halo_extent[0]; x<subNbx-halo_extent[0]; x++) {
+        for (int y=halo_extent[1]; y<subNby-halo_extent[1]; y++) {
+          // top solid node
+          density_lb[x][y][z] = density_lb[x][y][z-1];
+          phi_lb[x][y][z] = phi_lb[x][y][z-1];
+          psi_lb[x][y][z] = psi_lb[x][y][z-1];
+        }
+      }   
     }
-  }
-  // Check if the current node is on the bottom y-boundary
-  if (swap_y == y_bottom) {
-    // Loop over the entire x-z plane
-    for (int x = halo_extent[0]; x < subNbx - halo_extent[0]; ++x) {
-      for (int z = halo_extent[2]; z < subNbz - halo_extent[2]; ++z) {
-        // Copy values from two nodes inward to the last fluid node at the bottom boundary
-        density_lb[x][y][z] = density_lb[x][y + 1][z];
-        phi_lb[x][y][z] = phi_lb[x][y + 1][z];
-        psi_lb[x][y][z] = psi_lb[x][y + 1][z];
-      }
+    if(cur_z == z_bot){
+      for (int x=halo_extent[0]; x<subNbx-halo_extent[0]; x++) {
+        for (int y=halo_extent[1]; y<subNby-halo_extent[1]; y++) {
+          // bot solid node
+          density_lb[x][y][z] = density_lb[x][y][z+1];
+          phi_lb[x][y][z] = phi_lb[x][y][z+1];
+          psi_lb[x][y][z] = psi_lb[x][y][z+1];
+        }
+      }   
     }
-  }
+  } 
 }
 
 void FixLbMulticomponent::calc_equilibrium(int x, int y, int z) {
@@ -633,38 +629,31 @@ void FixLbMulticomponent::init_binary_mixture() {
   double C1_init, C2_init, C3_init;
   double C1tot = 0., C2tot = 0., C3tot = 0.;
   double C1tot_global = 0., C2tot_global = 0., C3tot_global = 0.;
+  double pos[3];
   int x, y, z, i;
+  double box_mid_z = domain->boxlo[2] + 0.5*domain->zprd;
 
-  // Loop through the grid points excluding the halo regions
-  for (x = halo_extent[0]; x < subNbx - halo_extent[0]; x++) {
-    for (y = halo_extent[1]; y < subNby - halo_extent[1]; y++) {
-      for (z = halo_extent[2]; z < subNbz - halo_extent[2]; z++) {
-        
-        // Initialize C1 at the bottom half of the y-axis and C3 at the top half
-        if (y < subNby / 2) {
-          C1_init = 1.0;  // C1 at the bottom (lower y-values)
-          C3_init = 0.0;
+  for (x=halo_extent[0]; x<subNbx-halo_extent[0]; x++) {
+    for (y=halo_extent[1]; y<subNby-halo_extent[1]; y++) {
+      for (z=halo_extent[2]; z<subNbz-halo_extent[2]; z++) {
+        pos[2] = domain->sublo[2] + (z-halo_extent[2])*dx_lb;
+        if (pos[2] > box_mid_z) {
+          C1_init = 1;
+          C2_init = 0;
+          C3_init = 0;
         } else {
-          C1_init = 0.0;
-          C3_init = 1.0;  // C3 at the top (higher y-values)
+          C1_init = 0;
+          C2_init = 1;
+          C3_init = 0;
         }
-
-        // C2 is 0 everywhere
-        C2_init = 0.0;
-
-        // Set rho, phi, and psi based on the concentrations
         rho = densityinit;
-        phi = densityinit * (C1_init - C2_init);
-        psi = densityinit * C3_init;
-
-        // Initialize the distribution functions for f, g, and k
-        for (i = 0; i < numvel; i++) {
-          f_lb[x][y][z][i] = w_lb19[i] * rho;
-          g_lb[x][y][z][i] = w_lb19[i] * phi;
-          k_lb[x][y][z][i] = w_lb19[i] * psi;
+        phi = densityinit*(C1_init-C2_init);
+        psi = densityinit*C3_init;
+        for (i=0; i<numvel; i++) {
+          f_lb[x][y][z][i] = w_lb19[i]*rho;
+          g_lb[x][y][z][i] = w_lb19[i]*phi;
+          k_lb[x][y][z][i] = w_lb19[i]*psi;
         }
-
-        // Accumulate the total concentrations for each component
         C1tot += C1_init;
         C2tot += C2_init;
         C3tot += C3_init;
