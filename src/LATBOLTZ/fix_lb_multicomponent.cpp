@@ -984,7 +984,13 @@ void FixLbMulticomponent::init_semi_droplet(double radius, double C1, double C2,
   double pos[3];
   double r2;
   int x, y, z, i;
-  double cent_pos[3] = {double((domain->boxlo[0]+domain->boxhi[0])/2), double((domain->boxlo[1]+domain->boxhi[1])/2), double(domain->boxhi[2])};
+  // double cent_pos[3] = {double((domain->boxlo[0]+domain->boxhi[0])/2), double((domain->boxlo[1]+domain->boxhi[1])/2), double(domain->boxhi[2])};
+  // double cent_pos[3] = {double(domain->boxhi[0]), double((domain->boxlo[1]+domain->boxhi[1])/2), double((domain->boxlo[2]+domain->boxhi[2])/2)};
+  double cent_pos[3] = {double((domain->boxlo[0]+domain->boxhi[0])/2), double(domain->boxlo[1]), double((domain->boxlo[2]+domain->boxhi[2])/2)};
+
+  // domain->periodicity[0] = 0;
+  domain->periodicity[1] = 0;
+  // domain->periodicity[2] = 0;
 
   for (x=0; x<subNbx; x++) {
     pos[0] = domain->sublo[0] + (x-halo_extent[0])*dx_lb;
@@ -1013,7 +1019,6 @@ void FixLbMulticomponent::init_semi_droplet(double radius, double C1, double C2,
       }
     }
   }
-  delete(random);
 }
 
 // mixed droplet of component C1 and C2 within pure C3
