@@ -75,6 +75,7 @@ namespace LAMMPS_NS {
     double C1, C2, C3;
     int radius;
     double C1_drop, C2_drop, C3_drop, C1_drop_out, C2_drop_out, C3_drop_out;
+    double C1_left, C2_left, C3_left, C1_right, C2_right, C3_right;
     double C1_film, C2_film;
     double thickness;
 
@@ -104,12 +105,13 @@ namespace LAMMPS_NS {
     void init_lattice();
     void destroy_lattice();
 
-    enum init_type { MIXTURE, DROPLET, LIQUID_LENS, DOUBLE_EMULSION, FILM, THREE_REGIONS, SEMI_DROPLET, MIXED_DROPLET };
+    enum init_type { MIXTURE, DROPLET, LIQUID_LENS, DOUBLE_EMULSION, FILM, THREE_REGIONS, BINARY_SYSTEM, SEMI_DROPLET, MIXED_DROPLET };
     init_type init_method = MIXTURE;
 
     void init_fluid();
     void init_mixture();
     void init_three_regions();
+    void init_binary_system(double C1_left, double C2_left, double C3_left, double C1_right, double C2_right, double C3_right);
     void init_droplet(double radius);
     void init_liquid_lens(double radius);
     void init_double_emulsion(double radius);

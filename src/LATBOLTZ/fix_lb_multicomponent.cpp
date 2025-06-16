@@ -831,6 +831,57 @@ void FixLbMulticomponent::init_three_regions() {
 
 }
 
+// Phase-separated binary system
+void FixLbMulticomponent::init_binary_system(double C1_left, double C2_left, double C3_left, double C1_right, double C2_right, double C3_right){
+  double rho, phi, psi;
+  double C1_init, C2_init, C3_init;
+  double C1tot = 0., C2tot = 0., C3tot = 0.;
+  double C1tot_global = 0., C2tot_global = 0., C3tot_global = 0.;
+  double pos[3];
+
+  int x, y, z, i;
+  RanMars *random = new RanMars(lmp, seed + comm->me);
+  double x_mid = domain->boxlo[0] + 0.5 * domain->xprd;
+
+  for (x = halo_extent[0]; x < subNbx - halo_extent[0]; x++) {
+    for (y = halo_extent[1]; y < subNby - halo_extent[1]; y++) {
+      for (z = halo_extent[2]; z < subNbz - halo_extent[2]; z++) {
+        pos[0] = domain->sublo[0] + (x - halo_extent[0]) * dx_lb;
+        if (pos[0] > x_mid) {
+            C1_init = C1_right;
+            C2_init = C2_right;
+            C3_init = C3_right;
+        } else {
+            C1_init = C1_left;
+            C2_init = C2_left;
+            C3_init = C3_left;
+        }
+        rho = densityinit;
+        phi = densityinit * (C1_init - C2_init);
+        psi = densityinit * C3_init;
+        for (i = 0; i < numvel; i++) {
+          f_lb[x][y][z][i] = w_lb19[i] * rho;
+          g_lb[x][y][z][i] = w_lb19[i] * phi;
+          k_lb[x][y][z][i] = w_lb19[i] * psi;
+        }
+        C1tot += C1_init;
+        C2tot += C2_init;
+        C3tot += C3_init;
+      }
+    }
+  }
+
+  MPI_Reduce(&C1tot, &C1tot_global, 1, MPI_DOUBLE, MPI_SUM, 0, world);
+  MPI_Reduce(&C2tot, &C2tot_global, 1, MPI_DOUBLE, MPI_SUM, 0, world);
+  MPI_Reduce(&C3tot, &C3tot_global, 1, MPI_DOUBLE, MPI_SUM, 0, world);
+
+  double vol = Nbx * Nby * Nbz;
+  if (comm->me == 0) {
+    error->message(FLERR, "Initialized binary separation system with <C1> = {:f}, <C2> = {:f}, <C3> = {:f}", C1tot_global / vol, C2tot_global / vol, C3tot_global / vol);
+  }
+
+}
+
 // droplet composed of component C1 and C2 (C3=0)
 void FixLbMulticomponent::init_droplet(double radius) {
   double rho=1.0, phi, psi=0.0;
@@ -1095,6 +1146,9 @@ void FixLbMulticomponent::init_fluid() {
       break;
     case THREE_REGIONS:
       init_three_regions();
+      break;
+    case BINARY_SYSTEM:
+      init_binary_system(C1_left, C2_left, C3_left, C1_right, C2_right, C3_right);
       break;
     case SEMI_DROPLET:
       init_semi_droplet(radius, C1_drop, C2_drop, C3_drop, C1_drop_out, C2_drop_out, C3_drop_out);
@@ -1728,8 +1782,19 @@ void FixLbMulticomponent::init_parameters(int argc, char **argv) {
         init_method = THREE_REGIONS;
         argi += 1;
       }
+      else if(strcmp(argv[argi],"binary_system")==0){
+        if (argi+7 > argc) error->all(FLERR, "Illegal fix lb/multicomponent command: {} {}", argv[argi-1], argv[argi]);
+        C1_left = utils::numeric(FLERR, argv[argi+1], false, lmp);
+        C2_left = utils::numeric(FLERR, argv[argi+2], false, lmp);
+        C3_left = utils::numeric(FLERR, argv[argi+3], false, lmp);
+        C1_right = utils::numeric(FLERR, argv[argi+4], false, lmp);
+        C2_right = utils::numeric(FLERR, argv[argi+5], false, lmp);
+        C3_right = utils::numeric(FLERR, argv[argi+6], false, lmp);
+        init_method = BINARY_SYSTEM;
+        argi += 7;
+      }
       else if(strcmp(argv[argi],"semi_droplet")==0){
-        if (argi+5 > argc) error->all(FLERR, "Illegal fix lb/multicomponent command: {} {}", argv[argi-1], argv[argi]);
+        if (argi+8 > argc) error->all(FLERR, "Illegal fix lb/multicomponent command: {} {}", argv[argi-1], argv[argi]);
         radius = utils::numeric(FLERR, argv[argi+1], false, lmp);
         C1_drop = utils::numeric(FLERR, argv[argi+2], false, lmp);
         C2_drop = utils::numeric(FLERR, argv[argi+3], false, lmp);
